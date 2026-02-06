@@ -1,4 +1,4 @@
-module GIN
+module NOTAILAB
 
 go 1.25.6
 

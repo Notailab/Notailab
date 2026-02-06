@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="../static/css/base.css">
+    <link rel="stylesheet" href="../static/css/style.css">
+</head>
+<body>
+    <!-- This was made with GlassGenerator.netlify.app -->
+    <div class="glass-container" id="glass">
+        <h2 class="login-title">用户登录</h2>
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="username">用户名</label>
+                <input type="text" id="username" placeholder="请输入用户名" required>
+            </div>
+            <div class="input-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" placeholder="请输入密码" required>
+            </div>
+            <button type="submit" class="login-btn">登录</button>
+        </form>
+        <div class="login-footer">
+            <a href="#">忘记密码?</a> | <a href="#">注册账号</a>
+        </div>
+    </div>
+    <script>
+        // 表单提交
+        
+    </script>
+</body>
+</html>

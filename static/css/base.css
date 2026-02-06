@@ -1,0 +1,96 @@
+/* ========== 基础重置：清除默认样式 ========== */
+* {
+  /* 统一盒模型计算方式，宽高不含内边距和边框 */
+  box-sizing: border-box;
+  /* 清除所有元素默认内外边距 */
+  margin: 0;
+  padding: 0;
+}
+
+/* 重置列表默认样式 */
+ul, ol, li {
+  list-style: none;
+}
+
+/* 重置链接默认样式 */
+a {
+  text-decoration: none;
+  color: inherit;
+  /* 取消点击高亮（移动端） */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 重置图片默认样式 */
+img {
+  /* 图片自适应容器 */
+  max-width: 100%;
+  /* 图片底部对齐 */
+  vertical-align: middle;
+  /* 去除图片边框（旧浏览器） */
+  border: none;
+}
+
+/* 重置表单元素样式 */
+input, button, textarea, select {
+  /* 继承父元素字体 */
+  font-family: inherit;
+  font-size: inherit;
+  /* 清除默认边框和背景 */
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+/* 重置表格样式 */
+table {
+  /* 合并单元格边框 */
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* ========== 通用样式：设置基础布局与排版 ========== */
+html, body {
+  /* 占满视口高度 */
+  height: 100%;
+  /* 基础字体大小（16px为浏览器默认） */
+  font-size: 16px;
+  /* 系统无衬线字体，兼顾跨平台显示 */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* 基础文本颜色 */
+  color: #333;
+  /* 背景色 */
+  background-color: #fff;
+  /* 禁止文本选中（可选，根据需求开启） */
+  /* user-select: none; */
+}
+
+/* 响应式字体大小（可选，基于视口宽度） */
+@media screen and (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* 清除浮动（兼容旧方法） */
+.clearfix::after {
+  content: "";
+  display: block;
+  clear: both;
+  height: 0;
+  visibility: hidden;
+}
+
+/* 单行文本溢出省略 */
+.text-ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 多行文本溢出省略（默认2行，可调整line-clamp值） */
+.text-ellipsis-multi {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

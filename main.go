@@ -1,17 +1,15 @@
 package main
 
 import (
-	"net/http"
-
-	"github.com/gin-gonic/gin"
+	"github.com/Notailab/Notailab/config"
+	"github.com/Notailab/Notailab/internal/router"
 )
 
 func main() {
-	router := gin.Default()
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "pong",
-		})
-	})
+	config.InitConfig()
+	config.InitDB()
+
+	router := router.InitRouter()
+
 	router.Run()
 }

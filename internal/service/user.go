@@ -5,6 +5,7 @@ import (
 
 	"github.com/Notailab/Notailab/internal/dao"
 	"github.com/Notailab/Notailab/internal/model"
+	"github.com/Notailab/Notailab/pkg/encrypt"
 )
 
 type UserService struct {
@@ -15,14 +16,33 @@ func NewUserService(dao *dao.UserDAO) *UserService {
 	return &UserService{dao: dao}
 }
 
+func (s *UserService) UserLogin(username, password string) (bool, error) {
+	user, err := s.GetUserByUsername(username)
+	if err != nil {
+		return false, err
+	}
+	if user == nil {
+		return false, fmt.Errorf("User not found")
+	}
+	isValid, err := encrypt.VerifyPassword(user.Password, password)
+	if err != nil {
+		return false, err
+	}
+	return isValid, nil
+}
+
 func (s *UserService) CreateUser(username, password string) error {
 	user, err := s.GetUserByUsername(username)
 	if err == nil && user != nil {
 		return fmt.Errorf("User already exists")
 	}
+	hashPassword, err := encrypt.HashPassword(password)
+	if err != nil {
+		return fmt.Errorf("Failed to hash password: %v", err)
+	}
 	user = &model.User{
 		Username: username,
-		Password: password,
+		Password: hashPassword,
 	}
 	return s.dao.CreateUser(user)
 }

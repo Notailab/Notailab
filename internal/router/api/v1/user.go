@@ -47,19 +47,19 @@ func (h *UserHandler) Login(c *gin.Context) {
 	username := req.Username
 	password := req.Password
 
-	user, err := h.userService.GetUserByUsername(username)
+	isValid, err := h.userService.UserLogin(username, password)
 	if err != nil {
 		c.JSON(404, gin.H{"error": "User not found"})
 		return
 	}
 
-	if user.Password != password {
+	if !isValid {
 		c.JSON(401, gin.H{"error": "Invalid credentials"})
+		return
 	}
 	c.JSON(200, gin.H{
 		"message":  "User logged in successfully",
-		"username": user.Username,
-		"password": user.Password,
+		"username": username,
 	})
 }
 

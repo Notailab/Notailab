@@ -16,7 +16,7 @@ func main() {
 	router.Static("/static", "./static")
 	router.LoadHTMLGlob("templates/*")
 	router.GET("/", func(c *gin.Context) {
-		c.HTML(200, "user.tpl", gin.H{})
+		c.HTML(200, "user.html", gin.H{})
 	})
 
 	router.Run()

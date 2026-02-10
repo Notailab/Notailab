@@ -1,6 +1,8 @@
 package router
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/Notailab/Notailab/config"
@@ -9,13 +11,32 @@ import (
 	"github.com/Notailab/Notailab/internal/service"
 )
 
-func InitRouter() *gin.Engine {
-	router := gin.Default()
-	
+func initStatic(router *gin.Engine) {
+	router.Static("/static", "./static")
+	router.LoadHTMLGlob("templates/*")
+}
+
+func initUser(router *gin.Engine) {
 	userDAO := dao.NewUserDAO(config.DB)
 	userService := service.NewUserService(userDAO)
 	userHandler := v1.NewUserHandler(userService)
 	userHandler.LoadRouter(router)
+}
+
+func InitRouter() *gin.Engine {
+	router := gin.Default()
+
+	router.GET("/", func(c *gin.Context) {
+		c.HTML(200, "user.html", gin.H{})
+	})
+
+	router.NoRoute(func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/")
+	})
+
+	initStatic(router)
+
+	initUser(router)
 
 	return router
 }

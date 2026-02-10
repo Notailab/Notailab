@@ -33,4 +33,4 @@ func (dao *UserDAO) UpdateUser(user *model.User) error {
 
 func (dao *UserDAO) DeleteUser(user *model.User) error {
 	return dao.db.Delete(user).Error
-}	
+}

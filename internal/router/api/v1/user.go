@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/Notailab/Notailab/internal/service"
+	"github.com/Notailab/Notailab/middleware/auth"
 )
 
 type UserHandler struct {
@@ -26,6 +27,11 @@ type UserRegisterRequest struct {
 type UserLoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
+}
+
+type UserInfoRequest struct {
+	UserId   uint   `json:"user_id" binding:"required"`
+	Username string `json:"username" binding:"required"`
 }
 
 func (h *UserHandler) Register(c *gin.Context) {
@@ -83,31 +89,58 @@ func (h *UserHandler) Login(c *gin.Context) {
 	username := req.Username
 	password := req.Password
 
-	isValid, err := h.userService.UserLogin(username, password)
-	if err != nil {
+	token, err := h.userService.UserLogin(username, password)
+	if err != nil || token == "" {
 		c.JSON(200, gin.H{
-			"code":  404,
-			"error": "User not found",
+			"code":  1000,
+			"error": "Login failed",
 		})
 		return
 	}
 
-	if !isValid {
-		c.JSON(200, gin.H{
-			"code":  401,
-			"error": "Invalid credentials",
-		})
-		return
-	}
 	c.JSON(200, gin.H{
 		"code":     200,
 		"message":  "User logged in successfully",
 		"username": username,
+		"token":    token,
 	})
 }
 
-func (h *UserHandler) LoadRouter(e *gin.Engine) {
-	e.POST("/api/user/register", h.Register)
-	e.POST("/api/user/login", h.Login)
+func (h *UserHandler) Info(c *gin.Context) {
+	user_id, exists := c.Get("user_id")
+	if !exists {
+		// 未取到 user_id（理论上不会走到这里，因为中间件已校验 Token 并存入）
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未获取到用户信息，请重新登录",
+		})
+		return
+	}
+
+	user, err := h.userService.GetUserByID(user_id.(uint))
+	if err != nil {
+		c.JSON(200, gin.H{
+			"code":  404,
+			"error": "No Authorzation",
+		})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"code":     200,
+		"id":       user_id,
+		"message":  "Authorzation successfully",
+		"username": user.Username,
+		"email":    user.Email,
+		"avatar":   user.Avatar,
+	})
 }
 
+func (h *UserHandler) LoadRouter(api *gin.RouterGroup) {
+	api.POST("/user/register", h.Register)
+	api.POST("/user/login", h.Login)
+	user := api.Group("/user", auth.AuthMiddleware())
+	{
+		user.POST("/info", h.Info)
+	}
+}

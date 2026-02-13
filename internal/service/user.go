@@ -8,6 +8,7 @@ import (
 	"github.com/Notailab/Notailab/internal/model"
 	"github.com/Notailab/Notailab/pkg/avatar"
 	"github.com/Notailab/Notailab/pkg/encrypt"
+	"github.com/Notailab/Notailab/pkg/jwt"
 )
 
 type UserService struct {
@@ -18,19 +19,19 @@ func NewUserService(dao *dao.UserDAO) *UserService {
 	return &UserService{dao: dao}
 }
 
-func (s *UserService) UserLogin(username, password string) (bool, error) {
+func (s *UserService) UserLogin(username, password string) (string, error) {
 	user, err := s.GetUserByUsername(username)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 	if user == nil {
-		return false, fmt.Errorf("User not found")
+		return "", fmt.Errorf("User not found")
 	}
 	isValid, err := encrypt.VerifyPassword(user.Password, password)
-	if err != nil {
-		return false, err
+	if err != nil || !isValid {
+		return "", err
 	}
-	return isValid, nil
+	return jwt.GenerateToken(user.ID, user.Username)
 }
 
 func (s *UserService) CreateUser(username, password, email string) error {
@@ -63,6 +64,10 @@ func (s *UserService) CheckEmail(email string) bool {
 	return s.dao.CheckEmail(email)
 }
 
+func (s *UserService) GetUserByID(user_id uint) (*model.User, error) {
+	return s.dao.GetUserByID(user_id)
+}
+
 func (s *UserService) GetUserByUsername(username string) (*model.User, error) {
 	return s.dao.GetUserByUsername(username)
 }
@@ -78,4 +83,3 @@ func (s *UserService) UpdateUser(user *model.User) error {
 func (s *UserService) DeleteUser(user *model.User) error {
 	return s.dao.DeleteUser(user)
 }
-

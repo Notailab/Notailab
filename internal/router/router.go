@@ -16,11 +16,11 @@ func initStatic(router *gin.Engine) {
 	router.LoadHTMLGlob("templates/*")
 }
 
-func initUser(router *gin.Engine) {
+func initUser(api *gin.RouterGroup) {
 	userDAO := dao.NewUserDAO(config.DB)
 	userService := service.NewUserService(userDAO)
 	userHandler := v1.NewUserHandler(userService)
-	userHandler.LoadRouter(router)
+	userHandler.LoadRouter(api)
 }
 
 func InitRouter() *gin.Engine {
@@ -36,7 +36,9 @@ func InitRouter() *gin.Engine {
 
 	initStatic(router)
 
-	initUser(router)
+	api := router.Group("/api")
+
+	initUser(api)
 
 	return router
 }

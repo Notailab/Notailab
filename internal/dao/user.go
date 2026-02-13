@@ -36,6 +36,15 @@ func (dao *UserDAO) CheckEmail(email string) bool {
 	return false
 }
 
+func (dao *UserDAO) GetUserByID(user_id uint) (*model.User, error) {
+	var user model.User
+	err := dao.db.Where("id = ?", user_id).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (dao *UserDAO) GetUserByUsername(username string) (*model.User, error) {
 	var user model.User
 	err := dao.db.Where("username = ?", username).First(&user).Error

@@ -18,9 +18,36 @@ func (dao *UserDAO) CreateUser(user *model.User) error {
 	return dao.db.Create(user).Error
 }
 
+func (dao *UserDAO) CheckUsername(username string) bool {
+	var user model.User
+	err := dao.db.Where("username = ?", username).First(&user).Error
+	if err != nil {
+		return true
+	}
+	return false
+}
+
+func (dao *UserDAO) CheckEmail(email string) bool {
+	var user model.User
+	err := dao.db.Where("email = ?", email).First(&user).Error
+	if err != nil {
+		return true
+	}
+	return false
+}
+
 func (dao *UserDAO) GetUserByUsername(username string) (*model.User, error) {
 	var user model.User
 	err := dao.db.Where("username = ?", username).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (dao *UserDAO) GetUserByEmail(email string) (*model.User, error) {
+	var user model.User
+	err := dao.db.Where("email = ?", email).First(&user).Error
 	if err != nil {
 		return nil, err
 	}

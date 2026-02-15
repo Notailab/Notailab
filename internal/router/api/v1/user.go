@@ -127,12 +127,12 @@ func (h *UserHandler) Info(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"code":     200,
-		"id":       user_id,
-		"message":  "Authorzation successfully",
-		"username": user.Username,
-		"email":    user.Email,
-		"avatar":   user.Avatar,
+		"code":        200,
+		"message":     "Authorzation successfully",
+		"username":    user.Username,
+		"email":       user.Email,
+		"avatar":      user.Avatar,
+		"create_time": user.CreateTime,
 	})
 }
 

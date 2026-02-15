@@ -23,6 +23,13 @@ func initUser(api *gin.RouterGroup) {
 	userHandler.LoadRouter(api)
 }
 
+func initProject(api *gin.RouterGroup) {
+	projectDAO := dao.NewProjectDAO(config.DB)
+	projectService := service.NewProjectService(projectDAO)
+	projectHandler := v1.NewProjectHandler(projectService)
+	projectHandler.LoadRouter(api)
+}
+
 func InitRouter() *gin.Engine {
 	router := gin.Default()
 
@@ -39,6 +46,7 @@ func InitRouter() *gin.Engine {
 	api := router.Group("/api")
 
 	initUser(api)
+	initProject(api)
 
 	return router
 }

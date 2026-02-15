@@ -31,7 +31,7 @@ func (s *UserService) UserLogin(username, password string) (string, error) {
 	if err != nil || !isValid {
 		return "", err
 	}
-	return jwt.GenerateToken(user.ID, user.Username)
+	return jwt.GenerateToken(user.UserID, user.Username)
 }
 
 func (s *UserService) CreateUser(username, password, email string) error {

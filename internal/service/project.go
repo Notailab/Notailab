@@ -20,3 +20,17 @@ func (s *ProjectService) CreateProject(project *model.Project) error {
 func (s *ProjectService) CheckTitleByUserId(user_id uint, title string) bool {
 	return s.dao.CheckTitleByUserId(user_id, title)
 }
+
+func (s *ProjectService) GetAllProjectTitlesByUserId(user_id uint) ([]string, error) {
+	projects, err := s.dao.GetAllProjectByUserID(user_id)
+	if err != nil {
+		return nil, err
+	}
+
+	titles := make([]string, 0, len(projects))
+	for _, p := range projects {
+		titles = append(titles, p.Title)
+	}
+
+	return titles, nil
+}

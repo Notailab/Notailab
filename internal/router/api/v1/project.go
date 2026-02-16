@@ -74,9 +74,36 @@ func (h *ProjectHandler) CreateProject(c *gin.Context) {
 	})
 }
 
+func (h *ProjectHandler) GetProjectTitles(c *gin.Context) {
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未获取到用户信息，请重新登录",
+		})
+		return
+	}
+
+	titles, err := h.projectService.GetAllProjectTitlesByUserId(userId.(uint))
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    500,
+			"message": fmt.Sprintf("%v", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "success!",
+		"titles":  titles,
+	})
+}
+
 func (h *ProjectHandler) LoadRouter(api *gin.RouterGroup) {
 	user := api.Group("/project", auth.AuthMiddleware())
 	{
 		user.POST("/new", h.CreateProject)
+		user.POST("/titles", h.GetProjectTitles)
 	}
 }

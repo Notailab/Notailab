@@ -34,3 +34,12 @@ func (s *ProjectService) GetAllProjectTitlesByUserId(user_id uint) ([]string, er
 
 	return titles, nil
 }
+
+func (s *ProjectService) GetAllProjectByUserId(user_id uint) ([]model.Project, error) {
+	projects, err := s.dao.GetAllProjectByUserID(user_id)
+	if err != nil {
+		return nil, err
+	}
+
+	return projects, nil
+}

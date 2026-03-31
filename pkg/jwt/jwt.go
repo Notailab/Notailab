@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	SecretKey  = "your-secret-key" // 生产环境换为环境变量
-	ExpireTime = time.Hour         // Token 有效期7天
+	SecretKey  = "your-secret-key"  // 生产环境换为环境变量
+	ExpireTime = 7 * 24 * time.Hour // Token 有效期7天
 )
 
 // 自定义 Claims，包含用户ID/用户名

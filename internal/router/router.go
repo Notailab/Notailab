@@ -30,6 +30,13 @@ func initProject(api *gin.RouterGroup) {
 	projectHandler.LoadRouter(api)
 }
 
+func initFile(api *gin.RouterGroup) {
+	fileDAO := dao.NewFileDAO(config.DB)
+	fileService := service.NewFileService(fileDAO)
+	fileHandler := v1.NewFileHandler(fileService)
+	fileHandler.LoadRouter(api)
+}
+
 func InitRouter() *gin.Engine {
 	router := gin.Default()
 
@@ -47,6 +54,7 @@ func InitRouter() *gin.Engine {
 
 	initUser(api)
 	initProject(api)
+	initFile(api)
 
 	return router
 }

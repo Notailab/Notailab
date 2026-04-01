@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Notailab/Notailab/internal/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -23,5 +24,17 @@ func InitDB() {
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Printf("连接数据库失败：%v", err)
+		return
+	}
+
+	if err := DB.AutoMigrate(
+		&model.User{},
+		&model.UserSetting{},
+		&model.Project{},
+		&model.File{},
+		&model.AgentConversation{},
+		&model.AgentMessage{},
+	); err != nil {
+		log.Printf("自动迁移数据库失败：%v", err)
 	}
 }

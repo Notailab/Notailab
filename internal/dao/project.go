@@ -44,3 +44,11 @@ func (dao *ProjectDAO) GetAllProjectByUserID(user_id uint) ([]model.Project, err
 
 	return projects, nil
 }
+
+func (dao *ProjectDAO) GetProjectByIDAndUserID(projectID, userID uint) (*model.Project, error) {
+	var project model.Project
+	if err := dao.db.Where("project_id = ? AND user_id = ?", projectID, userID).First(&project).Error; err != nil {
+		return nil, err
+	}
+	return &project, nil
+}

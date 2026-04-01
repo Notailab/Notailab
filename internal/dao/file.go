@@ -39,3 +39,11 @@ func (dao *FileDAO) UpdateFileContent(file_id uint, content string) error {
 func (dao *FileDAO) DeleteFile(file_id uint) error {
 	return dao.db.Delete(&model.File{}, file_id).Error
 }
+
+func (dao *FileDAO) GetFileByIDAndProjectID(fileID, projectID uint) (*model.File, error) {
+	var file model.File
+	if err := dao.db.Where("file_id = ? AND project_id = ?", fileID, projectID).First(&file).Error; err != nil {
+		return nil, err
+	}
+	return &file, nil
+}

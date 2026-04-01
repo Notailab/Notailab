@@ -15,7 +15,15 @@ func NewFileDAO(db *gorm.DB) *FileDAO {
 }
 
 func (dao *FileDAO) CreateFile(file *model.File) error {
-	return dao.db.Create(file).Error
+	return dao.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(file).Error; err != nil {
+			return err
+		}
+
+		return tx.Model(&model.Project{}).
+			Where("project_id = ?", file.ProjectID).
+			Update("updated_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
+	})
 }
 
 func (dao *FileDAO) GetFilesByProjectID(project_id uint) ([]model.File, error) {
@@ -33,11 +41,37 @@ func (dao *FileDAO) GetFilesByProjectID(project_id uint) ([]model.File, error) {
 }
 
 func (dao *FileDAO) UpdateFileContent(file_id uint, content string) error {
-	return dao.db.Model(&model.File{}).Where("file_id = ?", file_id).Update("content", content).Error
+	return dao.db.Transaction(func(tx *gorm.DB) error {
+		var file model.File
+		if err := tx.Select("file_id", "project_id").Where("file_id = ?", file_id).First(&file).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(&model.File{}).Where("file_id = ?", file_id).Update("content", content).Error; err != nil {
+			return err
+		}
+
+		return tx.Model(&model.Project{}).
+			Where("project_id = ?", file.ProjectID).
+			Update("updated_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
+	})
 }
 
 func (dao *FileDAO) DeleteFile(file_id uint) error {
-	return dao.db.Delete(&model.File{}, file_id).Error
+	return dao.db.Transaction(func(tx *gorm.DB) error {
+		var file model.File
+		if err := tx.Select("file_id", "project_id").Where("file_id = ?", file_id).First(&file).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Delete(&model.File{}, file_id).Error; err != nil {
+			return err
+		}
+
+		return tx.Model(&model.Project{}).
+			Where("project_id = ?", file.ProjectID).
+			Update("updated_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
+	})
 }
 
 func (dao *FileDAO) GetFileByIDAndProjectID(fileID, projectID uint) (*model.File, error) {

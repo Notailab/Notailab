@@ -34,18 +34,43 @@ func (dao *AgentDAO) CreateMessage(message *model.AgentMessage) error {
 	return dao.db.Create(message).Error
 }
 
+func (dao *AgentDAO) UpdateMessage(message *model.AgentMessage) error {
+	if message == nil {
+		return gorm.ErrInvalidData
+	}
+	return dao.db.Model(&model.AgentMessage{}).
+		Where("conversation_id = ? AND message_id = ?", message.ConversationID, message.MessageID).
+		Update("message_json", message.MessageJSON).Error
+}
+
+func (dao *AgentDAO) DeleteMessage(conversationID, messageID uint) error {
+	return dao.db.Where("conversation_id = ? AND message_id = ?", conversationID, messageID).Delete(&model.AgentMessage{}).Error
+}
+
+func (dao *AgentDAO) DeleteMessagesByConversation(conversationID uint) error {
+	return dao.db.Where("conversation_id = ?", conversationID).Delete(&model.AgentMessage{}).Error
+}
+
+func (dao *AgentDAO) ReplaceMessages(conversationID uint, messages []model.AgentMessage) error {
+	return dao.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("conversation_id = ?", conversationID).Delete(&model.AgentMessage{}).Error; err != nil {
+			return err
+		}
+		if len(messages) == 0 {
+			return nil
+		}
+		return tx.Create(&messages).Error
+	})
+}
+
 func (dao *AgentDAO) ListMessages(conversationID uint, limit int) ([]model.AgentMessage, error) {
 	var messages []model.AgentMessage
-	query := dao.db.Where("conversation_id = ?", conversationID).Order("message_id desc")
+	query := dao.db.Where("conversation_id = ?", conversationID).Order("message_id asc")
 	if limit > 0 {
 		query = query.Limit(limit)
 	}
 	if err := query.Find(&messages).Error; err != nil {
 		return nil, err
-	}
-
-	for left, right := 0, len(messages)-1; left < right; left, right = left+1, right-1 {
-		messages[left], messages[right] = messages[right], messages[left]
 	}
 
 	return messages, nil

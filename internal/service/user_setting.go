@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/Notailab/Notailab/internal/dao"
 	"github.com/Notailab/Notailab/internal/model"
@@ -27,8 +28,11 @@ func (s *UserSettingService) GetByUserID(userID uint) (*model.UserSetting, error
 	return nil, err
 }
 
-func (s *UserSettingService) Upsert(userID uint, setting *model.UserSetting) error {
+func (s *UserSettingService) Update(userID uint, setting *model.UserSetting) error {
 	setting.UserID = userID
+	setting.LLMBaseURL = strings.TrimSpace(setting.LLMBaseURL)
+	setting.LLMAPIKey = strings.TrimSpace(setting.LLMAPIKey)
+	setting.LLMModel = strings.TrimSpace(setting.LLMModel)
 	if setting.Temperature == 0 {
 		setting.Temperature = 0.7
 	}

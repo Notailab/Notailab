@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/datatypes"
+)
 
 type AgentConversation struct {
 	ConversationID uint      `gorm:"primaryKey;column:conversation_id" json:"conversation_id"`
@@ -18,11 +22,10 @@ func (c *AgentConversation) TableName() string {
 }
 
 type AgentMessage struct {
-	MessageID      uint      `gorm:"primaryKey;column:message_id" json:"message_id"`
-	ConversationID uint      `gorm:"not null;column:conversation_id;index" json:"conversation_id"`
-	Role           string    `gorm:"type:varchar(20);not null;column:role" json:"role"`
-	Content        string    `gorm:"type:text;not null;column:content" json:"content"`
-	CreatedAt      time.Time `gorm:"default:current_timestamp;column:created_at" json:"created_at"`
+	MessageID      uint           `gorm:"primaryKey;autoIncrement;column:message_id;index:idx_agent_message_conversation_message,priority:2" json:"message_id"`
+	ConversationID uint           `gorm:"not null;column:conversation_id;index:idx_agent_message_conversation_message,priority:1" json:"conversation_id"`
+	MessageJSON    datatypes.JSON `gorm:"type:jsonb;not null;column:message_json" json:"message_json"`
+	CreatedAt      time.Time      `gorm:"default:current_timestamp;column:created_at" json:"created_at"`
 }
 
 func (m *AgentMessage) TableName() string {

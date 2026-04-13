@@ -21,19 +21,19 @@ type DatabaseConfig struct {
 
 var Cfg *Config
 
-func InitConfig()  {
+func InitConfig() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	
+
 	viper.AddConfigPath("config")
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalf("读取配置文件失败：%v", err)
 	}
-	
+
 	if err := viper.Unmarshal(&Cfg); err != nil {
 		log.Fatalf("解析配置文件失败：%v", err)
 	}
-	
+
 	fmt.Println("配置初始化成功！")
 }

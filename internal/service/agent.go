@@ -1,32 +1,51 @@
 package service
 
 import (
+	"container/list"
+	"context"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
+	"sync"
 	"time"
+
+	"gorm.io/gorm"
 
 	"github.com/Notailab/Notailab/internal/dao"
 	"github.com/Notailab/Notailab/internal/model"
-	agentcore "github.com/Notailab/go-agent/agent/core"
-	"gorm.io/gorm"
+	memory "github.com/Notailab/Notailab/pkg/agent_memory"
+
+	agent "github.com/Notailab/go-agent/agent/agent"
+	agent_core "github.com/Notailab/go-agent/agent/core"
+	agent_storage "github.com/Notailab/go-agent/agent/storage"
+	agent_tools "github.com/Notailab/go-agent/agent/tools"
 )
 
 type AgentService struct {
-	agentDAO   *dao.AgentDAO
-	projectDAO *dao.ProjectDAO
-	fileDAO    *dao.FileDAO
-	settingDAO *dao.UserSettingDAO
-	config     *agentcore.Config
+	agentDAO        *dao.AgentDAO
+	projectDAO      *dao.ProjectDAO
+	fileDAO         *dao.FileDAO
+	settingDAO      *dao.UserSettingDAO
+	agentMu         sync.Mutex
+	agentCache      map[string]*list.Element
+	agentOrder      *list.List
+	agentCacheLimit int
+}
+
+type cachedAgentEntry struct {
+	key   string
+	agent *cachedAgent
+}
+
+const defaultAgentCacheLimit = 64
+
+type cachedAgent struct {
+	client *agent.ReactAgent
+	mu     sync.Mutex
 }
 
 type AgentChatRequest struct {
-	ProjectID     uint   `json:"project_id" binding:"required"`
-	FileID        *uint  `json:"file_id"`
-	Message       string `json:"message" binding:"required"`
-	EditorContent string `json:"editor_content"`
-	SelectedText  string `json:"selected_text"`
+	ProjectID uint   `json:"project_id" binding:"required"`
+	Content   string `json:"content" binding:"required"`
 }
 
 type AgentChatResult struct {
@@ -37,50 +56,14 @@ type AgentChatResult struct {
 
 func NewAgentService(agentDAO *dao.AgentDAO, projectDAO *dao.ProjectDAO, fileDAO *dao.FileDAO, settingDAO *dao.UserSettingDAO) *AgentService {
 	return &AgentService{
-		agentDAO:   agentDAO,
-		projectDAO: projectDAO,
-		fileDAO:    fileDAO,
-		settingDAO: settingDAO,
-		config:     agentcore.NewConfig(),
+		agentDAO:        agentDAO,
+		projectDAO:      projectDAO,
+		fileDAO:         fileDAO,
+		settingDAO:      settingDAO,
+		agentCache:      make(map[string]*list.Element),
+		agentOrder:      list.New(),
+		agentCacheLimit: defaultAgentCacheLimit,
 	}
-}
-
-func (s *AgentService) resolveLLMConfig(userID uint) (string, string, string, float64, *int, error) {
-	baseURL := os.Getenv("NOTAILAB_LLM_BASE_URL")
-	apiKey := os.Getenv("NOTAILAB_LLM_API_KEY")
-	llmModel := os.Getenv("NOTAILAB_LLM_MODEL")
-	temperature := 0.7
-	var maxTokens *int
-
-	if s.settingDAO != nil {
-		setting, err := s.settingDAO.GetByUserID(userID)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", "", "", 0, nil, err
-		}
-		if err == nil && setting != nil {
-			if setting.LLMBaseURL != "" {
-				baseURL = setting.LLMBaseURL
-			}
-			if setting.LLMAPIKey != "" {
-				apiKey = setting.LLMAPIKey
-			}
-			if setting.LLMModel != "" {
-				llmModel = setting.LLMModel
-			}
-			if setting.Temperature > 0 {
-				temperature = setting.Temperature
-			}
-			if setting.MaxTokens != nil {
-				maxTokens = setting.MaxTokens
-			}
-		}
-	}
-
-	if baseURL == "" || apiKey == "" || llmModel == "" {
-		return "", "", "", 0, nil, errors.New("缺少大模型配置，请在用户设置或环境变量中配置 NOTAILAB_LLM_BASE_URL、NOTAILAB_LLM_API_KEY 和 NOTAILAB_LLM_MODEL")
-	}
-
-	return baseURL, apiKey, llmModel, temperature, maxTokens, nil
 }
 
 func (s *AgentService) getOrCreateConversation(userID, projectID uint, projectTitle string) (*model.AgentConversation, error) {
@@ -104,121 +87,118 @@ func (s *AgentService) getOrCreateConversation(userID, projectID uint, projectTi
 	return conversation, nil
 }
 
-func (s *AgentService) buildSystemPrompt(project *model.Project, file *model.File) string {
-	var builder strings.Builder
-	builder.WriteString("你是 Notailab 的项目学习记录助手。你的任务是围绕项目给出可执行建议、总结、规划和文档优化建议。请始终使用中文，回答要具体、简洁、可落地。\n\n")
-	builder.WriteString(fmt.Sprintf("项目名称：%s\n", project.Title))
-	if project.Description != "" {
-		builder.WriteString(fmt.Sprintf("项目描述：%s\n", project.Description))
-	}
-	if project.Status != "" {
-		builder.WriteString(fmt.Sprintf("项目状态：%s\n", project.Status))
-	}
-	builder.WriteString(fmt.Sprintf("项目进度：%d%%\n", project.Progress))
-
-	if file != nil {
-		builder.WriteString(fmt.Sprintf("当前文件：%s\n", file.Name))
-		if file.Content != "" {
-			builder.WriteString("当前文件内容：\n")
-			builder.WriteString(truncateText(file.Content, 6000))
-			builder.WriteString("\n")
-		}
-	}
-
-	return builder.String()
+func (s *AgentService) agentCacheKey(userID, projectID, conversationID uint) string {
+	return fmt.Sprintf("%d:%d:%d", userID, projectID, conversationID)
 }
 
-func truncateText(text string, max int) string {
-	if max <= 0 || len(text) <= max {
-		return text
+func (s *AgentService) getCachedAgentLocked(cacheKey string) *cachedAgent {
+	if s.agentCache == nil || s.agentOrder == nil {
+		return nil
 	}
-	return text[:max] + "\n..."
-}
-
-func (s *AgentService) Chat(userID uint, req AgentChatRequest) (*AgentChatResult, error) {
-	baseURL, apiKey, llmModel, temperature, maxTokens, err := s.resolveLLMConfig(userID)
-	
-	if err != nil {
-		return nil, err
-	}
-	
-	project, err := s.projectDAO.GetProjectByIDAndUserID(req.ProjectID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	var currentFile *model.File
-	if req.FileID != nil {
-		currentFile, err = s.fileDAO.GetFileByIDAndProjectID(*req.FileID, req.ProjectID)
-		if err != nil {
-			return nil, err
+	if element := s.agentCache[cacheKey]; element != nil {
+		s.agentOrder.MoveToFront(element)
+		if entry, ok := element.Value.(*cachedAgentEntry); ok && entry != nil {
+			return entry.agent
 		}
 	}
-	
-	conversation, err := s.getOrCreateConversation(userID, req.ProjectID, project.Title)
+	return nil
+}
+
+func (s *AgentService) putCachedAgentLocked(cacheKey string, agent *cachedAgent) {
+	if s.agentCache == nil {
+		s.agentCache = make(map[string]*list.Element)
+	}
+	if s.agentOrder == nil {
+		s.agentOrder = list.New()
+	}
+	if s.agentCacheLimit <= 0 {
+		s.agentCacheLimit = defaultAgentCacheLimit
+	}
+
+	if element := s.agentCache[cacheKey]; element != nil {
+		element.Value = &cachedAgentEntry{key: cacheKey, agent: agent}
+		s.agentOrder.MoveToFront(element)
+		return
+	}
+
+	element := s.agentOrder.PushFront(&cachedAgentEntry{key: cacheKey, agent: agent})
+	s.agentCache[cacheKey] = element
+
+	for s.agentOrder.Len() > s.agentCacheLimit {
+		oldest := s.agentOrder.Back()
+		if oldest == nil {
+			break
+		}
+		entry, _ := oldest.Value.(*cachedAgentEntry)
+		s.agentOrder.Remove(oldest)
+		if entry != nil {
+			delete(s.agentCache, entry.key)
+		}
+	}
+}
+
+func (s *AgentService) buildAgent(userID, projectID, conversationID uint) (*cachedAgent, error) {
+	setting, err := s.settingDAO.GetByUserID(userID)
 	if err != nil {
 		return nil, err
 	}
-	
-	historyModels, err := s.agentDAO.ListMessages(conversation.ConversationID, 20)
+	baseurl := setting.LLMBaseURL
+	apikey := setting.LLMAPIKey
+	llmModel := setting.LLMModel
+	temperature := setting.Temperature
+	if temperature <= 0 {
+		temperature = 0.7
+	}
+
+	cacheKey := s.agentCacheKey(userID, projectID, conversationID)
+
+	s.agentMu.Lock()
+	defer s.agentMu.Unlock()
+	if cached := s.getCachedAgentLocked(cacheKey); cached != nil {
+		return cached, nil
+	}
+
+	chatStore, err := memory.NewChatStore(s.agentDAO, conversationID)
 	if err != nil {
 		return nil, err
 	}
-	
-	llm := agentcore.NewLLM(baseURL, apiKey, llmModel, temperature, maxTokens)
-	agent := agentcore.NewAgent(
-		project.Title,
-		llm,
-		s.buildSystemPrompt(project, currentFile),
-		s.config,
+	memory := agent_core.NewMemory(chatStore, agent_storage.NewInMemoryLongStore())
+
+	client := agent.NewReactAgent(
+		agent.WithLLM(baseurl, llmModel, apikey),
+		agent.WithMemory(memory),
+		agent.WithTools(agent_tools.NewLongMemoryTool(memory)),
+		agent.WithReporter(agent.NoopReporter{}),
+		agent.WithTemperature(temperature),
 	)
 
-	for _, item := range historyModels {
-		agent.AddMessage(agentcore.Message{Role: item.Role, Content: item.Content})
+	if client == nil {
+		return nil, fmt.Errorf("failed to create agent client")
 	}
 
-	userContent := req.Message
-	if req.SelectedText != "" {
-		userContent += "\n\n当前选中文本：\n" + req.SelectedText
-	}
-	if req.EditorContent != "" {
-		userContent += "\n\n当前编辑内容：\n" + truncateText(req.EditorContent, 6000)
-	}
-	
-	reply, err := agent.Run(userContent, nil)
+	entry := &cachedAgent{client: client}
+	s.putCachedAgentLocked(cacheKey, entry)
+	return entry, nil
+}
+
+func (s *AgentService) Chat(ctx context.Context, userID uint, req AgentChatRequest) (string, error) {
+	project, err := s.projectDAO.GetProjectByIDAndUserID(req.ProjectID, userID)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	if err := s.agentDAO.CreateMessage(&model.AgentMessage{
-		ConversationID: conversation.ConversationID,
-		Role:           "user",
-		Content:        userContent,
-	}); err != nil {
-		return nil, err
-	}
-
-	if err := s.agentDAO.CreateMessage(&model.AgentMessage{
-		ConversationID: conversation.ConversationID,
-		Role:           "assistant",
-		Content:        reply,
-	}); err != nil {
-		return nil, err
-	}
-
-	conversation.LastMessageAt = time.Now()
-	if err := s.agentDAO.UpdateConversation(conversation); err != nil {
-		return nil, err
-	}
-
-	historyModels, err = s.agentDAO.ListMessages(conversation.ConversationID, 20)
+	conversation, err := s.getOrCreateConversation(userID, req.ProjectID, project.Title)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return &AgentChatResult{
-		Conversation: conversation,
-		Reply:        reply,
-		History:      historyModels,
-	}, nil
+	agentEntry, err := s.buildAgent(userID, req.ProjectID, conversation.ConversationID)
+	if err != nil {
+		return "", err
+	}
+
+	agentEntry.mu.Lock()
+	defer agentEntry.mu.Unlock()
+
+	return agentEntry.client.Run(ctx, req.Content)
 }

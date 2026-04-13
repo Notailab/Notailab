@@ -70,7 +70,7 @@ func (h *UserSettingHandler) UpdateSettings(c *gin.Context) {
 		MaxTokens:   req.MaxTokens,
 	}
 
-	if err := h.settingService.Upsert(userID.(uint), setting); err != nil {
+	if err := h.settingService.Update(userID.(uint), setting); err != nil {
 		c.JSON(http.StatusOK, gin.H{"code": 500, "message": fmt.Sprintf("保存用户设置失败: %v", err)})
 		return
 	}
@@ -78,7 +78,7 @@ func (h *UserSettingHandler) UpdateSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "保存成功",
-		"data":    setting,
+		"data":    nil,
 	})
 }
 

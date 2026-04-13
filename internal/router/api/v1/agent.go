@@ -43,7 +43,7 @@ func (h *AgentHandler) Chat(c *gin.Context) {
 		return
 	}
 
-	result, err := h.agentService.Chat(userID.(uint), req)
+	result, err := h.agentService.Chat(c.Request.Context(), userID.(uint), req)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    500,
@@ -52,21 +52,13 @@ func (h *AgentHandler) Chat(c *gin.Context) {
 		return
 	}
 
-	history := make([]map[string]string, 0, len(result.History))
-	for _, item := range result.History {
-		history = append(history, map[string]string{
-			"role":    item.Role,
-			"content": item.Content,
-		})
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "success",
-		"data": AgentChatResponse{
-			ConversationID: result.Conversation.ConversationID,
-			Reply:          result.Reply,
-			History:        history,
+		"data": struct {
+			Reply string `json:"reply"`
+		}{
+			Reply: result,
 		},
 	})
 }

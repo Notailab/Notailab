@@ -120,9 +120,9 @@ func (h *ProjectHandler) GetProjects(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "success!",
-		"projects":  projects,
+		"code":     200,
+		"message":  "success!",
+		"projects": projects,
 	})
 }
 

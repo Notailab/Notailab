@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -23,6 +24,7 @@ type FileCreateRequest struct {
 	ProjectID uint   `json:"project_id" binding:"required"`
 	Name      string `json:"name" binding:"required"`
 	Content   string `json:"content" binding:"required"`
+	IsHidden  bool   `json:"is_hidden"`
 }
 
 func (h *FileHandler) CreateFile(c *gin.Context) {
@@ -40,6 +42,7 @@ func (h *FileHandler) CreateFile(c *gin.Context) {
 		ProjectID: req.ProjectID,
 		Name:      req.Name,
 		Content:   req.Content,
+		IsHidden:  req.IsHidden || strings.HasPrefix(req.Name, "."),
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

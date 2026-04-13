@@ -1,6 +1,8 @@
 package dao
 
 import (
+	"strings"
+
 	"gorm.io/gorm"
 
 	"github.com/Notailab/Notailab/internal/model"
@@ -16,6 +18,7 @@ func NewFileDAO(db *gorm.DB) *FileDAO {
 
 func (dao *FileDAO) CreateFile(file *model.File) error {
 	return dao.db.Transaction(func(tx *gorm.DB) error {
+		file.IsHidden = file.IsHidden || strings.HasPrefix(file.Name, ".")
 		if err := tx.Create(file).Error; err != nil {
 			return err
 		}
@@ -26,10 +29,22 @@ func (dao *FileDAO) CreateFile(file *model.File) error {
 	})
 }
 
-func (dao *FileDAO) GetFilesByProjectID(project_id uint) ([]model.File, error) {
+func (dao *FileDAO) GetFilesByProjectID(projectID uint) ([]model.File, error) {
+	return dao.getFilesByProjectID(projectID, false)
+}
+
+func (dao *FileDAO) GetAllFilesByProjectID(projectID uint) ([]model.File, error) {
+	return dao.getFilesByProjectID(projectID, true)
+}
+
+func (dao *FileDAO) getFilesByProjectID(projectID uint, includeHidden bool) ([]model.File, error) {
 	var files []model.File
 
-	if err := dao.db.Where("project_id = ?", project_id).Find(&files).Error; err != nil {
+	query := dao.db.Where("project_id = ?", projectID)
+	if !includeHidden {
+		query = query.Where("is_hidden = ?", false)
+	}
+	if err := query.Find(&files).Error; err != nil {
 		return nil, err
 	}
 

@@ -17,8 +17,17 @@ func (s *FileService) CreateFile(file *model.File) error {
 	return s.dao.CreateFile(file)
 }
 
-func (s *FileService) GetFilesByProjectID(project_id uint) ([]model.File, error) {
-	files, err := s.dao.GetFilesByProjectID(project_id)
+func (s *FileService) GetFilesByProjectID(projectID uint) ([]model.File, error) {
+	files, err := s.dao.GetFilesByProjectID(projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return files, nil
+}
+
+func (s *FileService) GetAllFilesByProjectID(projectID uint) ([]model.File, error) {
+	files, err := s.dao.GetAllFilesByProjectID(projectID)
 	if err != nil {
 		return nil, err
 	}

@@ -174,6 +174,43 @@ func (h *ProjectHandler) GetProject(c *gin.Context) {
 	})
 }
 
+func (h *ProjectHandler) GetProjectByTitle(c *gin.Context) {
+	var req struct {
+		Title string `json:"title" binding:"required"`
+	}
+	userId, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未获取到用户信息，请重新登录",
+		})
+		return
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":  400,
+			"error": fmt.Sprintf("Invalid request: %v", err),
+		})
+		return
+	}
+
+	project, err := h.projectService.GetProjectByTitleAndUserID(req.Title, userId.(uint))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"code":    404,
+			"message": "project not found",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "success",
+		"data":    project,
+	})
+}
+
 func (h *ProjectHandler) GetProjectTitles(c *gin.Context) {
 	userId, exists := c.Get("user_id")
 	if !exists {
@@ -232,6 +269,7 @@ func (h *ProjectHandler) LoadRouter(api *gin.RouterGroup) {
 		pro.POST("/new", h.CreateProject)
 		pro.POST("/update", h.UpdateProject)
 		pro.POST("/get", h.GetProject)
+		pro.POST("/get-by-title", h.GetProjectByTitle)
 		pro.POST("/titles", h.GetProjectTitles)
 		pro.POST("/projects", h.GetProjects)
 	}

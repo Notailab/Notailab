@@ -51,3 +51,7 @@ func (s *ProjectService) GetAllProjectByUserId(user_id uint) ([]model.Project, e
 func (s *ProjectService) GetProjectByIDAndUserID(projectID, userID uint) (*model.Project, error) {
 	return s.dao.GetProjectByIDAndUserID(projectID, userID)
 }
+
+func (s *ProjectService) GetProjectByTitleAndUserID(title string, userID uint) (*model.Project, error) {
+	return s.dao.GetProjectByTitleAndUserID(title, userID)
+}

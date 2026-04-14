@@ -13,6 +13,7 @@ import (
 	"github.com/Notailab/Notailab/internal/dao"
 	"github.com/Notailab/Notailab/internal/model"
 	memory "github.com/Notailab/Notailab/pkg/agent_memory"
+	notailab_tools "github.com/Notailab/Notailab/pkg/tools"
 
 	agent "github.com/Notailab/go-agent/agent/agent"
 	agent_core "github.com/Notailab/go-agent/agent/core"
@@ -38,8 +39,8 @@ type cachedAgentEntry struct {
 const defaultAgentCacheLimit = 64
 
 type cachedAgent struct {
-	client           *agent.ReactAgent
-	mu               sync.Mutex
+	client *agent.ReactAgent
+	mu     sync.Mutex
 }
 
 type AgentChatRequest struct {
@@ -166,11 +167,15 @@ func (s *AgentService) buildAgent(userID, projectID, conversationID uint) (*cach
 		return nil, err
 	}
 	memory := agent_core.NewMemory(chatStore, projectLongStore)
+	projectTools, err := notailab_tools.NewFileTools(s.fileDAO, projectID)
+	if err != nil {
+		return nil, err
+	}
 
 	client := agent.NewReactAgent(
 		agent.WithLLM(baseurl, llmModel, apikey),
 		agent.WithMemory(memory),
-		agent.WithTools(agent_tools.NewLongMemoryTool(memory)),
+		agent.WithTools(append(projectTools, agent_tools.NewLongMemoryTool(memory))...),
 		agent.WithReporter(agent.NoopReporter{}),
 		agent.WithTemperature(temperature),
 	)

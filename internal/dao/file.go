@@ -62,7 +62,12 @@ func (dao *FileDAO) UpdateFileContent(file_id uint, content string) error {
 			return err
 		}
 
-		if err := tx.Model(&model.File{}).Where("file_id = ?", file_id).Update("content", content).Error; err != nil {
+		if err := tx.Model(&model.File{}).
+			Where("file_id = ?", file_id).
+			Updates(map[string]interface{}{
+				"content":    content,
+				"updated_at": gorm.Expr("CURRENT_TIMESTAMP"),
+			}).Error; err != nil {
 			return err
 		}
 
@@ -87,14 +92,6 @@ func (dao *FileDAO) DeleteFile(file_id uint) error {
 			Where("project_id = ?", file.ProjectID).
 			Update("updated_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
 	})
-}
-
-func (dao *FileDAO) GetFileByIDAndProjectID(fileID, projectID uint) (*model.File, error) {
-	var file model.File
-	if err := dao.db.Where("file_id = ? AND project_id = ?", fileID, projectID).First(&file).Error; err != nil {
-		return nil, err
-	}
-	return &file, nil
 }
 
 func (dao *FileDAO) GetFileByNameAndProjectID(projectID uint, name string) (*model.File, error) {

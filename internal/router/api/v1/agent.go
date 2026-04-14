@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -11,10 +12,14 @@ import (
 )
 
 type AgentHandler struct {
-	agentService *service.AgentService
+	agentService agentChatService
 }
 
-func NewAgentHandler(agentService *service.AgentService) *AgentHandler {
+type agentChatService interface {
+	Chat(ctx context.Context, userID uint, req service.AgentChatRequest) (string, error)
+}
+
+func NewAgentHandler(agentService agentChatService) *AgentHandler {
 	return &AgentHandler{agentService: agentService}
 }
 
@@ -45,7 +50,7 @@ func (h *AgentHandler) Chat(c *gin.Context) {
 
 	result, err := h.agentService.Chat(c.Request.Context(), userID.(uint), req)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
+		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": fmt.Sprintf("Agent chat failed: %v", err),
 		})

@@ -96,3 +96,11 @@ func (dao *FileDAO) GetFileByIDAndProjectID(fileID, projectID uint) (*model.File
 	}
 	return &file, nil
 }
+
+func (dao *FileDAO) GetFileByNameAndProjectID(projectID uint, name string) (*model.File, error) {
+	var file model.File
+	if err := dao.db.Where("project_id = ? AND name = ?", projectID, name).First(&file).Error; err != nil {
+		return nil, err
+	}
+	return &file, nil
+}

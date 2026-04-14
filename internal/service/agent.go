@@ -16,7 +16,6 @@ import (
 
 	agent "github.com/Notailab/go-agent/agent/agent"
 	agent_core "github.com/Notailab/go-agent/agent/core"
-	agent_storage "github.com/Notailab/go-agent/agent/storage"
 	agent_tools "github.com/Notailab/go-agent/agent/tools"
 )
 
@@ -39,8 +38,8 @@ type cachedAgentEntry struct {
 const defaultAgentCacheLimit = 64
 
 type cachedAgent struct {
-	client *agent.ReactAgent
-	mu     sync.Mutex
+	client           *agent.ReactAgent
+	mu               sync.Mutex
 }
 
 type AgentChatRequest struct {
@@ -162,7 +161,11 @@ func (s *AgentService) buildAgent(userID, projectID, conversationID uint) (*cach
 	if err != nil {
 		return nil, err
 	}
-	memory := agent_core.NewMemory(chatStore, agent_storage.NewInMemoryLongStore())
+	projectLongStore, err := memory.NewProjectLongStore(s.fileDAO, projectID)
+	if err != nil {
+		return nil, err
+	}
+	memory := agent_core.NewMemory(chatStore, projectLongStore)
 
 	client := agent.NewReactAgent(
 		agent.WithLLM(baseurl, llmModel, apikey),
@@ -187,6 +190,7 @@ func (s *AgentService) Chat(ctx context.Context, userID uint, req AgentChatReque
 		return "", err
 	}
 
+	// TODO: consider multiple conversations per project in the future
 	conversation, err := s.getOrCreateConversation(userID, req.ProjectID, project.Title)
 	if err != nil {
 		return "", err

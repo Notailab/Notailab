@@ -20,6 +20,18 @@ func (dao *ProjectDAO) CreateProject(pro *model.Project) error {
 	return dao.db.Create(pro).Error
 }
 
+func (dao *ProjectDAO) UpdateProjectByIDAndUserID(project *model.Project) error {
+	return dao.db.Model(&model.Project{}).
+		Where("project_id = ? AND user_id = ?", project.ProjectID, project.UserID).
+		Updates(map[string]interface{}{
+			"title":       project.Title,
+			"description": project.Description,
+			"start_date":  project.StartDate,
+			"end_date":    project.EndDate,
+			"updated_at":  gorm.Expr("CURRENT_TIMESTAMP"),
+		}).Error
+}
+
 func (dao *ProjectDAO) CheckTitleByUserId(user_id uint, title string) bool {
 	var count int64
 	err := dao.db.Model(&model.Project{}).

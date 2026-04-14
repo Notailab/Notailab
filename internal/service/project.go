@@ -17,6 +17,10 @@ func (s *ProjectService) CreateProject(project *model.Project) error {
 	return s.dao.CreateProject(project)
 }
 
+func (s *ProjectService) UpdateProjectByIDAndUserID(project *model.Project) error {
+	return s.dao.UpdateProjectByIDAndUserID(project)
+}
+
 func (s *ProjectService) CheckTitleByUserId(user_id uint, title string) bool {
 	return s.dao.CheckTitleByUserId(user_id, title)
 }
@@ -42,4 +46,8 @@ func (s *ProjectService) GetAllProjectByUserId(user_id uint) ([]model.Project, e
 	}
 
 	return projects, nil
+}
+
+func (s *ProjectService) GetProjectByIDAndUserID(projectID, userID uint) (*model.Project, error) {
+	return s.dao.GetProjectByIDAndUserID(projectID, userID)
 }

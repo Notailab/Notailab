@@ -55,6 +55,26 @@ func (dao *FileDAO) getFilesByProjectID(projectID uint, includeHidden bool) ([]m
 	return files, nil
 }
 
+func (dao *FileDAO) GetAllFileByNameAndProjectID(projectID uint, name string) (*model.File, error) {
+	return dao.getFileByNameAndProjectID(projectID, name, true)
+}
+
+func (dao *FileDAO) GetFileByNameAndProjectID(projectID uint, name string) (*model.File, error) {
+	return dao.getFileByNameAndProjectID(projectID, name, false)
+}
+
+func (dao *FileDAO) getFileByNameAndProjectID(projectID uint, name string, includeHidden bool) (*model.File, error) {
+	var file model.File
+	query := dao.db.Where("project_id = ? AND name = ?", projectID, name)
+	if !includeHidden {
+		query = query.Where("is_hidden = ?", false)
+	}
+	if err := query.First(&file).Error; err != nil {
+		return nil, err
+	}
+	return &file, nil
+}
+
 func (dao *FileDAO) UpdateFileContent(file_id uint, content string) error {
 	return dao.db.Transaction(func(tx *gorm.DB) error {
 		var file model.File
@@ -92,12 +112,4 @@ func (dao *FileDAO) DeleteFile(file_id uint) error {
 			Where("project_id = ?", file.ProjectID).
 			Update("updated_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
 	})
-}
-
-func (dao *FileDAO) GetFileByNameAndProjectID(projectID uint, name string) (*model.File, error) {
-	var file model.File
-	if err := dao.db.Where("project_id = ? AND name = ?", projectID, name).First(&file).Error; err != nil {
-		return nil, err
-	}
-	return &file, nil
 }

@@ -1,15 +1,14 @@
 package tools
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 
-	"github.com/Notailab/Notailab/internal/model"
-	"github.com/Notailab/go-agent/agent/core"
 	"gorm.io/gorm"
+
+	"github.com/Notailab/Notailab/internal/model"
+	agent_core "github.com/Notailab/go-agent/agent/core"
 )
 
 type projectFileStore interface {
@@ -19,34 +18,17 @@ type projectFileStore interface {
 	UpdateFileContent(fileID uint, content string) error
 }
 
-func NewFileTools(fileStore projectFileStore, projectID uint) ([]core.Tool, error) {
+func NewFileTools(fileStore projectFileStore, projectID uint) ([]agent_core.Tool, error) {
 	if fileStore == nil {
 		return nil, fmt.Errorf("file store is nil")
 	}
 
-	return []core.Tool{
+	return []agent_core.Tool{
 		NewListFilesTool(fileStore, projectID),
 		NewReadFileTool(fileStore, projectID),
 		NewWriteFileTool(fileStore, projectID),
 		NewEditFileTool(fileStore, projectID),
 	}, nil
-}
-
-func normalizeFileName(fileName string) (string, error) {
-	name := strings.TrimSpace(fileName)
-	if name == "" {
-		return "", fmt.Errorf("file name is required")
-	}
-	if strings.HasPrefix(name, ".") {
-		return "", fmt.Errorf("file name cannot start with '.'")
-	}
-	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
-		return "", fmt.Errorf("file name must not contain path separators")
-	}
-	if filepath.Base(name) != name {
-		return "", fmt.Errorf("invalid file name")
-	}
-	return name, nil
 }
 
 type ListFilesTool struct {
@@ -66,24 +48,14 @@ func (t *ListFilesTool) Description() string {
 	return "List files stored in the current Notailab project database."
 }
 
-func (t *ListFilesTool) Parameters() core.Parameters {
-	return core.Parameters{
+func (t *ListFilesTool) Parameters() agent_core.Parameters {
+	return agent_core.Parameters{
 		Type:       "object",
-		Properties: map[string]core.Param{},
+		Properties: map[string]agent_core.Param{},
 	}
 }
 
-func (t *ListFilesTool) Execute(params string) (string, error) {
-	if strings.TrimSpace(params) != "" && strings.TrimSpace(params) != "{}" {
-		var input map[string]interface{}
-		if err := json.Unmarshal([]byte(params), &input); err != nil {
-			return "", fmt.Errorf("failed to parse parameters: %w", err)
-		}
-		if len(input) > 0 {
-			return "", fmt.Errorf("list files does not accept parameters")
-		}
-	}
-
+func (t *ListFilesTool) Execute(paramsJson string) (string, error) {
 	files, err := t.store.GetFilesByProjectID(t.projectID)
 	if err != nil {
 		return "", err
@@ -95,7 +67,7 @@ func (t *ListFilesTool) Execute(params string) (string, error) {
 
 	lines := make([]string, 0, len(files))
 	for _, file := range files {
-		lines = append(lines, fmt.Sprintf("file_id=%d name=%s size=%d", file.FileID, file.Name, len(file.Content)))
+		lines = append(lines, fmt.Sprintf("name=%s size=%d", file.Name, len(file.Content)))
 	}
 	return strings.Join(lines, "\n"), nil
 }
@@ -117,10 +89,10 @@ func (t *ReadFileTool) Description() string {
 	return "Read a file record from the current Notailab project database."
 }
 
-func (t *ReadFileTool) Parameters() core.Parameters {
-	return core.Parameters{
+func (t *ReadFileTool) Parameters() agent_core.Parameters {
+	return agent_core.Parameters{
 		Type: "object",
-		Properties: map[string]core.Param{
+		Properties: map[string]agent_core.Param{
 			"file_name": {
 				Type:        "string",
 				Description: "The file name inside the project.",
@@ -130,18 +102,13 @@ func (t *ReadFileTool) Parameters() core.Parameters {
 	}
 }
 
-func (t *ReadFileTool) Execute(params string) (string, error) {
-	var input struct {
-		FileName string `json:"file_name"`
-	}
-	if err := json.Unmarshal([]byte(params), &input); err != nil {
-		return "", fmt.Errorf("failed to parse parameters: %w", err)
-	}
-
-	fileName, err := normalizeFileName(input.FileName)
+func (t *ReadFileTool) Execute(paramsJson string) (string, error) {
+	params, err := agent_core.ParseToolParams(paramsJson, t.Parameters())
 	if err != nil {
 		return "", err
 	}
+	
+	fileName := params["file_name"].(string)
 
 	file, err := t.store.GetFileByNameAndProjectID(t.projectID, fileName)
 	if err != nil {
@@ -168,10 +135,10 @@ func (t *WriteFileTool) Description() string {
 	return "Create or overwrite a file record in the current Notailab project database."
 }
 
-func (t *WriteFileTool) Parameters() core.Parameters {
-	return core.Parameters{
+func (t *WriteFileTool) Parameters() agent_core.Parameters {
+	return agent_core.Parameters{
 		Type: "object",
-		Properties: map[string]core.Param{
+		Properties: map[string]agent_core.Param{
 			"file_name": {
 				Type:        "string",
 				Description: "The file name inside the project.",
@@ -185,22 +152,17 @@ func (t *WriteFileTool) Parameters() core.Parameters {
 	}
 }
 
-func (t *WriteFileTool) Execute(params string) (string, error) {
-	var input struct {
-		FileName string `json:"file_name"`
-		Content  string `json:"content"`
-	}
-	if err := json.Unmarshal([]byte(params), &input); err != nil {
-		return "", fmt.Errorf("failed to parse parameters: %w", err)
-	}
-
-	fileName, err := normalizeFileName(input.FileName)
+func (t *WriteFileTool) Execute(paramsJson string) (string, error) {
+	params, err := agent_core.ParseToolParams(paramsJson, t.Parameters())
 	if err != nil {
 		return "", err
 	}
+	
+	fileName := params["file_name"].(string)
+	content := params["content"].(string)
 
 	if existing, err := t.store.GetFileByNameAndProjectID(t.projectID, fileName); err == nil {
-		if err := t.store.UpdateFileContent(existing.FileID, input.Content); err != nil {
+		if err := t.store.UpdateFileContent(existing.FileID, content); err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("updated file_id=%d name=%s", existing.FileID, existing.Name), nil
@@ -211,7 +173,7 @@ func (t *WriteFileTool) Execute(params string) (string, error) {
 	file := &model.File{
 		ProjectID: t.projectID,
 		Name:      fileName,
-		Content:   input.Content,
+		Content:   content,
 	}
 	if err := t.store.CreateFile(file); err != nil {
 		return "", err
@@ -237,10 +199,10 @@ func (t *EditFileTool) Description() string {
 	return "Edit an existing file record in the current Notailab project database by replacing text."
 }
 
-func (t *EditFileTool) Parameters() core.Parameters {
-	return core.Parameters{
+func (t *EditFileTool) Parameters() agent_core.Parameters {
+	return agent_core.Parameters{
 		Type: "object",
-		Properties: map[string]core.Param{
+		Properties: map[string]agent_core.Param{
 			"file_name": {
 				Type:        "string",
 				Description: "The file name inside the project.",
@@ -258,21 +220,17 @@ func (t *EditFileTool) Parameters() core.Parameters {
 	}
 }
 
-func (t *EditFileTool) Execute(params string) (string, error) {
-	var input struct {
-		FileName string `json:"file_name"`
-		OldText  string `json:"old_text"`
-		NewText  string `json:"new_text"`
-	}
-	if err := json.Unmarshal([]byte(params), &input); err != nil {
-		return "", fmt.Errorf("failed to parse parameters: %w", err)
-	}
-
-	fileName, err := normalizeFileName(input.FileName)
+func (t *EditFileTool) Execute(paramsJson string) (string, error) {
+	params, err := agent_core.ParseToolParams(paramsJson, t.Parameters())
 	if err != nil {
 		return "", err
 	}
-	if strings.TrimSpace(input.OldText) == "" {
+	
+	fileName := params["file_name"].(string)
+	oldText := params["old_text"].(string)
+	newText := params["new_text"].(string)
+
+	if strings.TrimSpace(oldText) == "" {
 		return "", fmt.Errorf("old_text is required")
 	}
 
@@ -281,11 +239,11 @@ func (t *EditFileTool) Execute(params string) (string, error) {
 		return "", err
 	}
 
-	if !strings.Contains(file.Content, input.OldText) {
+	if !strings.Contains(file.Content, oldText) {
 		return "", fmt.Errorf("old_text not found in file")
 	}
 
-	updated := strings.ReplaceAll(file.Content, input.OldText, input.NewText)
+	updated := strings.ReplaceAll(file.Content, oldText, newText)
 	if err := t.store.UpdateFileContent(file.FileID, updated); err != nil {
 		return "", err
 	}

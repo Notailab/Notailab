@@ -17,7 +17,7 @@ func NewFileDAO(db *gorm.DB) *FileDAO {
 }
 
 func (dao *FileDAO) CreateFile(file *model.File) error {
-	return dao.db.Transaction(func(tx *gorm.DB) error {
+	if err := dao.db.Transaction(func(tx *gorm.DB) error {
 		file.IsHidden = file.IsHidden || strings.HasPrefix(file.Name, ".")
 		if err := tx.Create(file).Error; err != nil {
 			return err
@@ -26,7 +26,17 @@ func (dao *FileDAO) CreateFile(file *model.File) error {
 		return tx.Model(&model.Project{}).
 			Where("project_id = ?", file.ProjectID).
 			Update("updated_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
+	}); err != nil {
+		return err
+	}
+
+	PublishFileEvent(FileChangeEvent{
+		Action:    "created",
+		ProjectID: file.ProjectID,
+		FileID:    file.FileID,
 	})
+
+	return nil
 }
 
 func (dao *FileDAO) GetFilesByProjectID(projectID uint) ([]model.File, error) {
@@ -76,11 +86,13 @@ func (dao *FileDAO) getFileByNameAndProjectID(projectID uint, name string, inclu
 }
 
 func (dao *FileDAO) UpdateFileContent(file_id uint, content string) error {
-	return dao.db.Transaction(func(tx *gorm.DB) error {
+	var projectID uint
+	if err := dao.db.Transaction(func(tx *gorm.DB) error {
 		var file model.File
 		if err := tx.Select("file_id", "project_id").Where("file_id = ?", file_id).First(&file).Error; err != nil {
 			return err
 		}
+		projectID = file.ProjectID
 
 		if err := tx.Model(&model.File{}).
 			Where("file_id = ?", file_id).
@@ -94,15 +106,27 @@ func (dao *FileDAO) UpdateFileContent(file_id uint, content string) error {
 		return tx.Model(&model.Project{}).
 			Where("project_id = ?", file.ProjectID).
 			Update("updated_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
+	}); err != nil {
+		return err
+	}
+
+	PublishFileEvent(FileChangeEvent{
+		Action:    "updated",
+		ProjectID: projectID,
+		FileID:    file_id,
 	})
+
+	return nil
 }
 
 func (dao *FileDAO) DeleteFile(file_id uint) error {
-	return dao.db.Transaction(func(tx *gorm.DB) error {
+	var projectID uint
+	if err := dao.db.Transaction(func(tx *gorm.DB) error {
 		var file model.File
 		if err := tx.Select("file_id", "project_id").Where("file_id = ?", file_id).First(&file).Error; err != nil {
 			return err
 		}
+		projectID = file.ProjectID
 
 		if err := tx.Delete(&model.File{}, file_id).Error; err != nil {
 			return err
@@ -111,5 +135,15 @@ func (dao *FileDAO) DeleteFile(file_id uint) error {
 		return tx.Model(&model.Project{}).
 			Where("project_id = ?", file.ProjectID).
 			Update("updated_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
+	}); err != nil {
+		return err
+	}
+
+	PublishFileEvent(FileChangeEvent{
+		Action:    "deleted",
+		ProjectID: projectID,
+		FileID:    file_id,
 	})
+
+	return nil
 }

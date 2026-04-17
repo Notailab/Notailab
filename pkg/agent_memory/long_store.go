@@ -18,7 +18,7 @@ import (
 const projectLongMemoryFileName = ".MEMORY"
 
 type longMemoryFileStore interface {
-	GetFileByNameAndProjectID(projectID uint, name string) (*model.File, error)
+	GetAllFileByNameAndProjectID(projectID uint, name string) (*model.File, error)
 	CreateFile(file *model.File) error
 	UpdateFileContent(fileID uint, content string) error
 }
@@ -48,7 +48,7 @@ func NewProjectLongStore(fileStore longMemoryFileStore, projectID uint) (*Projec
 }
 
 func (s *ProjectLongStore) loadOrCreate() error {
-	file, err := s.fileStore.GetFileByNameAndProjectID(s.projectID, projectLongMemoryFileName)
+	file, err := s.fileStore.GetAllFileByNameAndProjectID(s.projectID, projectLongMemoryFileName)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
@@ -60,12 +60,12 @@ func (s *ProjectLongStore) loadOrCreate() error {
 			Content:   "",
 			IsHidden:  true,
 		}); err != nil {
-			file, err = s.fileStore.GetFileByNameAndProjectID(s.projectID, projectLongMemoryFileName)
+			file, err = s.fileStore.GetAllFileByNameAndProjectID(s.projectID, projectLongMemoryFileName)
 			if err != nil {
 				return err
 			}
 		} else {
-			file, err = s.fileStore.GetFileByNameAndProjectID(s.projectID, projectLongMemoryFileName)
+			file, err = s.fileStore.GetAllFileByNameAndProjectID(s.projectID, projectLongMemoryFileName)
 			if err != nil {
 				return err
 			}

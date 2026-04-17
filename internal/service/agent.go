@@ -137,7 +137,7 @@ func (s *AgentService) putCachedAgentLocked(cacheKey string, agent *cachedAgent)
 	}
 }
 
-func (s *AgentService) buildAgent(userID, projectID, conversationID uint) (*cachedAgent, error) {
+func (s *AgentService) buildAgent(userID, conversationID uint, project *model.Project) (*cachedAgent, error) {
 	setting, err := s.settingDAO.GetByUserID(userID)
 	if err != nil {
 		return nil, err
@@ -150,7 +150,7 @@ func (s *AgentService) buildAgent(userID, projectID, conversationID uint) (*cach
 		temperature = 0.7
 	}
 
-	cacheKey := s.agentCacheKey(userID, projectID, conversationID)
+	cacheKey := s.agentCacheKey(userID, project.ProjectID, conversationID)
 
 	s.agentMu.Lock()
 	defer s.agentMu.Unlock()
@@ -162,18 +162,19 @@ func (s *AgentService) buildAgent(userID, projectID, conversationID uint) (*cach
 	if err != nil {
 		return nil, err
 	}
-	projectLongStore, err := memory.NewProjectLongStore(s.fileDAO, projectID)
+	projectLongStore, err := memory.NewProjectLongStore(s.fileDAO, project.ProjectID)
 	if err != nil {
 		return nil, err
 	}
 	memory := agent_core.NewMemory(chatStore, projectLongStore)
-	projectTools, err := notailab_tools.NewFileTools(s.fileDAO, projectID)
+	projectTools, err := notailab_tools.NewFileTools(s.fileDAO, project.ProjectID)
 	if err != nil {
 		return nil, err
 	}
 
 	client := agent.NewReactAgent(
 		agent.WithLLM(baseurl, llmModel, apikey),
+		agent.WithStaticSystemPrompt(buildNotailabSystemPrompt(project)),
 		agent.WithMemory(memory),
 		agent.WithTools(append(projectTools, agent_tools.NewLongMemoryTool(memory))...),
 		agent.WithReporter(agent.NoopReporter{}),
@@ -201,7 +202,7 @@ func (s *AgentService) Chat(ctx context.Context, userID uint, req AgentChatReque
 		return "", err
 	}
 
-	agentEntry, err := s.buildAgent(userID, req.ProjectID, conversation.ConversationID)
+	agentEntry, err := s.buildAgent(userID, conversation.ConversationID, project)
 	if err != nil {
 		return "", err
 	}
